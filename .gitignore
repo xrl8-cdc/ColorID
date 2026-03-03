@@ -1,0 +1,74 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+bin/
+obj/
+publish/
+
+# build outputs
+/bin/
+/obj/
+/bin/Release/
+/bin/Debug/
+
+# Rider
+.idea/
+
+# JetBrains
+*.sln.iml
+
+# NuGet
+*.nupkg
+*.snupkg
+# The packages folder can be ignored because of PackageRestore
+**/packages/*
+# except build/, which is used as an MSBuild target.
+!**/packages/build/
+
+# IIS Express
+/.vs/*
+
+# Rider, VS Code
+.vscode/
+
+# Visual Studio profiler
+*.psess
+*.vsp
+*.vspx
+
+# Others
+*.mdb
+*.pdb
+
+# Windows image file caches
+Thumbs.db
+
+# Visual Studio Code workspace
+*.code-workspace
+
+# User-specific files
+*.suo
+*.user
+*.userprefs
+
+# Roslyn generated files
+**/Generated
+data.json
+
+# npm
+node_modules/
+
+# Logs
+*.log
+
+# GitHub Actions
+.github/

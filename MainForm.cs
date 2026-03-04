@@ -57,9 +57,9 @@ namespace ColorID
         {
             Text = "ColorID";
             TopMost = true;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
+            FormBorderStyle = FormBorderStyle.FixedDialog; // still fixed size
             MaximizeBox = false;
-            MinimizeBox = false;
+            MinimizeBox = true; // user requested ability to minimize the app
             ClientSize = new Size(520, 220);
 
             swatch = new Panel { Location = new Point(12, 12), Size = new Size(100, 100), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.Black };
@@ -77,27 +77,29 @@ namespace ColorID
             nameLabel = new Label { Location = new Point(124, 80), AutoSize = true, Text = "Unknown" };
             Controls.Add(nameLabel);
 
-            toggleBtn = new Button { Location = new Point(124, 112), Size = new Size(160, 28), Text = "Start Picking (Space)" };
+            toggleBtn = new Button { Size = new Size(160, 28), Text = "Start Picking (Space)" };
             toggleBtn.Click += (s, e) => TogglePicking();
             Controls.Add(toggleBtn);
 
-            copyBtn = new Button { Location = new Point(124, 144), Size = new Size(160, 28), Text = "Copy Hex" };
+            copyBtn = new Button { Size = new Size(160, 28), Text = "Copy Hex" };
             copyBtn.Click += (s, e) => Clipboard.SetText(hexLabel.Text);
             Controls.Add(copyBtn);
 
-            paletteToggleBtn = new Button { Location = new Point(124, 176), Size = new Size(160, 28), Text = "Show Palette" };
+            paletteToggleBtn = new Button { Size = new Size(160, 28), Text = "Show Palette" };
             paletteToggleBtn.Click += (s, e) => TogglePaletteVisibility();
             Controls.Add(paletteToggleBtn);
 
-            Label schemeLabel = new Label { Location = new Point(12, 220), AutoSize = true, Text = "Scheme:" };
+            Label schemeLabel = new Label { AutoSize = true, Text = "Scheme:" };
             schemeLabel.Tag = "paletteUI";
             Controls.Add(schemeLabel);
 
-            schemeCombo = new ComboBox { Location = new Point(12, 240), Size = new Size(200, 24), DropDownStyle = ComboBoxStyle.DropDownList, Tag = "paletteUI" };
+            schemeCombo = new ComboBox { Size = new Size(200, 24), DropDownStyle = ComboBoxStyle.DropDownList, Tag = "paletteUI" };
             schemeCombo.Items.AddRange(Enum.GetNames(typeof(ColorScheme)));
             schemeCombo.SelectedIndex = 0;
             schemeCombo.SelectedIndexChanged += (s, e) => UpdatePaletteUI();
             Controls.Add(schemeCombo);
+
+            // centering will be handled once all palette controls are created
 
             paletteInfoLabel = new Label[4];
             paletteSwatch = new PictureBox[4];
@@ -112,7 +114,18 @@ namespace ColorID
                 Controls.Add(paletteInfoLabel[i]);
             }
 
-            //TogglePaletteVisibility(); Fixes pallette controls showing by default
+            // update palette based on default scheme/color and then reposition
+            UpdatePaletteUI();
+            RepositionPaletteControls();
+
+            // start hidden; user must click Show Palette to reveal
+            foreach (Control c in Controls)
+                if ((string?)c.Tag == "paletteUI")
+                    c.Visible = false;
+            paletteVisible = false;
+
+            // center buttons now that they exist
+            RepositionButtons();
 
             KeyPreview = true;
             KeyDown += MainForm_KeyDown;
@@ -250,12 +263,95 @@ namespace ColorID
         private void TogglePaletteVisibility()
         {
             paletteVisible = !paletteVisible;
+            if (paletteVisible)
+            {
+                // ensure swatch visibility matches the current scheme before showing
+                UpdatePaletteUI();
+            }
+
             foreach (Control c in Controls)
+            {
                 if ((string?)c.Tag == "paletteUI")
-                    c.Visible = paletteVisible;
+                {
+                    if (paletteVisible)
+                    {
+                        bool isScheme = (c == schemeCombo) || (c is Label l && l.Text == "Scheme:");
+                        c.Visible = isScheme || c.Visible;
+                    }
+                    else
+                    {
+                        c.Visible = false;
+                    }
+                }
+            }
         
             paletteToggleBtn.Text = paletteVisible ? "Hide Palette" : "Show Palette";
             ClientSize = paletteVisible ? new Size(520, 430) : new Size(520, 220);
+            RepositionPaletteControls(); // recenter when toggling
+            RepositionButtons();
+        }
+
+        /// <summary>
+        /// Adjusts the location of scheme controls and palette swatches so that
+        /// they are centered within the current client area.  This should be
+        /// called whenever the form is resized, palette visibility changes, or
+        /// the number of active palette entries is updated.
+        /// </summary>
+        private void RepositionPaletteControls()
+        {
+            // position scheme label/combo on same line, centered horizontally
+            // compute actual width of scheme label after AutoSize
+            if (schemeCombo != null && schemeCombo.Parent != null)
+            {
+                var schemeLabel = Controls.OfType<Label>().FirstOrDefault(l => l.Text == "Scheme:");
+                if (schemeLabel != null)
+                {
+                    int gap = 8;
+                    int totalWidth = schemeLabel.Width + gap + schemeCombo.Width;
+                    int startX = (ClientSize.Width - totalWidth) / 2;
+                    int y = 220;
+                    schemeLabel.Location = new Point(startX, y);
+                    schemeCombo.Location = new Point(startX + schemeLabel.Width + gap, y);
+                }
+            }
+
+            // reposition palette swatches that are visible, centering them horizontally
+            if (paletteSwatch != null)
+            {
+                var visibleSwatches = paletteSwatch.Where(pb => pb.Visible).ToArray();
+                int count = visibleSwatches.Length;
+                if (count > 0)
+                {
+                    int swatchWidth = 100;
+                    int spacing = 20; // distance between swatches
+                    int totalWidth = count * swatchWidth + (count - 1) * spacing;
+                    int startX = (ClientSize.Width - totalWidth) / 2;
+                    int swatchY = 270;
+                    int infoY = 355;
+                    for (int i = 0, x = startX; i < paletteSwatch.Length; i++)
+                    {
+                        if (!paletteSwatch[i].Visible)
+                            continue;
+                        paletteSwatch[i].Location = new Point(x, swatchY);
+                        paletteInfoLabel[i].Location = new Point(x, infoY);
+                        x += swatchWidth + spacing;
+                    }
+                }
+            }
+            // keep buttons centered too
+            RepositionButtons();
+        }
+
+        /// <summary>
+        /// Center the action buttons horizontally within the client area.
+        /// </summary>
+        private void RepositionButtons()
+        {
+            int btnWidth = 160;
+            int startX = (ClientSize.Width - btnWidth) / 2;
+            if (toggleBtn != null) toggleBtn.Location = new Point(startX, 112);
+            if (copyBtn != null) copyBtn.Location = new Point(startX, 144);
+            if (paletteToggleBtn != null) paletteToggleBtn.Location = new Point(startX, 176);
         }
 
         private void CopyPaletteColor(PictureBox box)
@@ -361,13 +457,16 @@ namespace ColorID
                     string rgb = $"rgb({c.R},{c.G},{c.B})";
                     string name = GetNearestColorName(c);
                     paletteInfoLabel[i].Text = $"{hex}\n{rgb}\n{name}";
+                    paletteSwatch[i].Visible = true;
+                    paletteInfoLabel[i].Visible = true;
                 }
                 else
                 {
-                    paletteSwatch[i].BackColor = Color.Transparent;
-                    paletteInfoLabel[i].Text = "";
+                    paletteSwatch[i].Visible = false;
+                    paletteInfoLabel[i].Visible = false;
                 }
             }
+            RepositionPaletteControls();
         }
     }
 }

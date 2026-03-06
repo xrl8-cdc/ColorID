@@ -36,7 +36,7 @@ namespace ColorID
         private Label nameLabel = null!;
         private PictureBox zoomBox = null!;
         private Button toggleBtn = null!;
-        private Button copyBtn = null!;
+        private ToolTip toolTip = null!;
 
         private const int SampleSize = 21; // square sample (odd preferred)
         private const int ZoomFactor = 6; // scaling multiplier
@@ -62,11 +62,16 @@ namespace ColorID
             MinimizeBox = true; // user requested ability to minimize the app
             ClientSize = new Size(520, 220);
 
-            swatch = new Panel { Location = new Point(12, 12), Size = new Size(100, 100), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.Black };
+            swatch = new Panel { Location = new Point(12, 12), Size = new Size(100, 100), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.Black, Cursor = Cursors.Hand };
+            swatch.Click += (s, e) => CopyColor(swatch.BackColor, (Control)s!);
             Controls.Add(swatch);
 
             zoomBox = new PictureBox { Location = new Point(380, 12), Size = new Size(SampleSize * ZoomFactor, SampleSize * ZoomFactor), BorderStyle = BorderStyle.FixedSingle };
             Controls.Add(zoomBox);
+
+            toolTip = new ToolTip();
+            toolTip.SetToolTip(swatch, "Click to copy hex color");
+            toolTip.SetToolTip(zoomBox, "Zoomed view of sampled area");
 
             hexLabel = new Label { Location = new Point(124, 16), AutoSize = true, Font = new Font(Font.FontFamily, 12, FontStyle.Bold), Text = "#000000" };
             Controls.Add(hexLabel);
@@ -80,10 +85,6 @@ namespace ColorID
             toggleBtn = new Button { Size = new Size(160, 28), Text = "Start Picking (Space)" };
             toggleBtn.Click += (s, e) => TogglePicking();
             Controls.Add(toggleBtn);
-
-            copyBtn = new Button { Size = new Size(160, 28), Text = "Copy Hex" };
-            copyBtn.Click += (s, e) => Clipboard.SetText(hexLabel.Text);
-            Controls.Add(copyBtn);
 
             paletteToggleBtn = new Button { Size = new Size(160, 28), Text = "Show Palette" };
             paletteToggleBtn.Click += (s, e) => TogglePaletteVisibility();
@@ -107,7 +108,8 @@ namespace ColorID
             {
                 int xPos = 12 + i * 120;
                 paletteSwatch[i] = new PictureBox { Location = new Point(xPos, 270), Size = new Size(100, 80), BorderStyle = BorderStyle.FixedSingle, Tag = "paletteUI", Cursor = Cursors.Hand };
-                paletteSwatch[i].Click += (s, e) => CopyPaletteColor((PictureBox)s!);
+                paletteSwatch[i].Click += (s, e) => CopyColor(((PictureBox)s!).BackColor, (Control)s!);
+                toolTip.SetToolTip(paletteSwatch[i], "Click to copy hex color");
                 Controls.Add(paletteSwatch[i]);
 
                 paletteInfoLabel[i] = new Label { Location = new Point(xPos, 355), Size = new Size(100, 60), AutoSize = false, Text = "#000000\nrgb(0,0,0)\nUnknown", Tag = "paletteUI", TextAlign = ContentAlignment.TopCenter, Font = new Font(Font.FontFamily, 8) };
@@ -350,14 +352,27 @@ namespace ColorID
             int btnWidth = 160;
             int startX = (ClientSize.Width - btnWidth) / 2;
             if (toggleBtn != null) toggleBtn.Location = new Point(startX, 112);
-            if (copyBtn != null) copyBtn.Location = new Point(startX, 144);
-            if (paletteToggleBtn != null) paletteToggleBtn.Location = new Point(startX, 176);
+            if (paletteToggleBtn != null) paletteToggleBtn.Location = new Point(startX, 144);
         }
 
-        private void CopyPaletteColor(PictureBox box)
+        private void CopyColor(Color color, Control control)
         {
-            string hex = $"#{box.BackColor.R:X2}{box.BackColor.G:X2}{box.BackColor.B:X2}";
+            string hex = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
             Clipboard.SetText(hex);
+            FlashControl(control);
+        }
+
+        private async void FlashControl(Control control)
+        {
+            var originalColor = control.BackColor;
+            var flashColor = Color.FromArgb(
+                Math.Min(255, originalColor.R + 50),
+                Math.Min(255, originalColor.G + 50),
+                Math.Min(255, originalColor.B + 50)
+            );
+            control.BackColor = flashColor;
+            await Task.Delay(150);
+            control.BackColor = originalColor;
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)

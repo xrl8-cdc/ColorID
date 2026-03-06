@@ -351,8 +351,8 @@ namespace ColorID
         {
             int btnWidth = 160;
             int startX = (ClientSize.Width - btnWidth) / 2;
-            if (toggleBtn != null) toggleBtn.Location = new Point(startX, 112);
-            if (paletteToggleBtn != null) paletteToggleBtn.Location = new Point(startX, 144);
+            if (toggleBtn != null) toggleBtn.Location = new Point(startX, 136);
+            if (paletteToggleBtn != null) paletteToggleBtn.Location = new Point(startX, 168);
         }
 
         private void CopyColor(Color color, Control control)

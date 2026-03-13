@@ -57,10 +57,12 @@ namespace ColorID
         {
             Text = "ColorID";
             TopMost = true;
-            FormBorderStyle = FormBorderStyle.FixedDialog; // still fixed size
+            // Allow the user to resize the window; keep the picker on top but not locked.
+            FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = false;
-            MinimizeBox = true; // user requested ability to minimize the app
-            ClientSize = new Size(520, 220);
+            MinimizeBox = true;
+            MinimumSize = new Size(480, 200);
+            ClientSize = new Size(480, 200);
 
             swatch = new Panel { Location = new Point(12, 12), Size = new Size(100, 100), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.Black, Cursor = Cursors.Hand };
             swatch.Click += (s, e) => CopyColor(swatch.BackColor, (Control)s!);
@@ -126,11 +128,14 @@ namespace ColorID
                     c.Visible = false;
             paletteVisible = false;
 
-            // center buttons now that they exist
-            RepositionButtons();
+            // layout everything now that the controls exist
+            LayoutControls();
 
             KeyPreview = true;
             KeyDown += MainForm_KeyDown;
+
+            // Keep the UI responsive when the user resizes the window
+            Resize += (s, e) => LayoutControls();
         }
 
         private void MainForm_KeyDown(object? sender, KeyEventArgs e)
@@ -267,7 +272,6 @@ namespace ColorID
             paletteVisible = !paletteVisible;
             if (paletteVisible)
             {
-                // ensure swatch visibility matches the current scheme before showing
                 UpdatePaletteUI();
             }
 
@@ -288,9 +292,10 @@ namespace ColorID
             }
         
             paletteToggleBtn.Text = paletteVisible ? "Hide Palette" : "Show Palette";
-            ClientSize = paletteVisible ? new Size(520, 430) : new Size(520, 220);
-            RepositionPaletteControls(); // recenter when toggling
-            RepositionButtons();
+            int width = Math.Max(ClientSize.Width, MinimumSize.Width);
+            int height = paletteVisible ? 430 : 220;
+            ClientSize = new Size(width, height);
+            LayoutControls();
         }
 
         /// <summary>
@@ -317,7 +322,6 @@ namespace ColorID
                 }
             }
 
-            // reposition palette swatches that are visible, centering them horizontally
             if (paletteSwatch != null)
             {
                 var visibleSwatches = paletteSwatch.Where(pb => pb.Visible).ToArray();
@@ -340,7 +344,6 @@ namespace ColorID
                     }
                 }
             }
-            // keep buttons centered too
             RepositionButtons();
         }
 
@@ -353,6 +356,40 @@ namespace ColorID
             int startX = (ClientSize.Width - btnWidth) / 2;
             if (toggleBtn != null) toggleBtn.Location = new Point(startX, 136);
             if (paletteToggleBtn != null) paletteToggleBtn.Location = new Point(startX, 168);
+        }
+
+        /// <summary>
+        /// Layouts the fixed elements (swatch, zoom box, and labels) and then
+        /// re-centers the buttons and palette controls. This is called when the
+        /// window is resized or when the palette visibility changes.
+        /// </summary>
+        private void LayoutControls()
+        {
+            const int margin = 12;
+
+            // Keep swatch in the top-left corner
+            swatch.Location = new Point(margin, margin);
+
+            // Keep zoom box in the top-right corner
+            zoomBox.Location = new Point(ClientSize.Width - margin - zoomBox.Width, margin);
+
+            // Labels sit to the right of the swatch, but should not overlap the zoom box
+            int labelX = swatch.Right + margin;
+            int maxLabelWidth = Math.Max(0, zoomBox.Left - margin - labelX);
+            if (maxLabelWidth > 0)
+            {
+                hexLabel.MaximumSize = new Size(maxLabelWidth, 0);
+                rgbLabel.MaximumSize = new Size(maxLabelWidth, 0);
+                nameLabel.MaximumSize = new Size(maxLabelWidth, 0);
+            }
+
+            hexLabel.Location = new Point(labelX, margin + 4);
+            rgbLabel.Location = new Point(labelX, hexLabel.Bottom + 6);
+            nameLabel.Location = new Point(labelX, rgbLabel.Bottom + 6);
+
+            // Re-center the buttons and palette controls for the current size
+            RepositionButtons();
+            RepositionPaletteControls();
         }
 
         private void CopyColor(Color color, Control control)

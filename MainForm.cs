@@ -385,6 +385,7 @@ namespace ColorID
             int height = paletteVisible ? 520 : 220; // increase height to fit palette and contrast controls
             ClientSize = new Size(width, height);
             LayoutControls();
+            UpdatePaletteUI();
         }
 
         /// <summary>

@@ -15,8 +15,7 @@ namespace ColorID
 
         private struct HSV { public double H, S, V; }
 
-        private enum ColorScheme { Complementary, Analogous, Triadic, SplitComplementary, Tetradic }
-
+        private enum ColorScheme { Complementary, Analogous, Triadic, SplitComplementary, Tetradic, Compliant508 }
         [DllImport("user32.dll")]
         private static extern bool GetCursorPos(out POINT lpPoint);
 
@@ -47,6 +46,13 @@ namespace ColorID
         private Label[] paletteInfoLabel = null!;
         private Button paletteToggleBtn = null!;
 
+        private Panel contrastSwatch1 = null!;
+        private Panel contrastSwatch2 = null!;
+        private Label contrastLabel1 = null!;
+        private Label contrastLabel2 = null!;
+        private Label contrastRatioLabel = null!;
+        private Button swapContrastBtn = null!;
+
         public MainForm()
         {
             BuildUi();
@@ -61,8 +67,8 @@ namespace ColorID
             FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = false;
             MinimizeBox = true;
-            MinimumSize = new Size(480, 200);
-            ClientSize = new Size(480, 200);
+            MinimumSize = new Size(480, 220);
+            ClientSize = new Size(480, 220);
 
             swatch = new Panel { Location = new Point(12, 12), Size = new Size(100, 100), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.Black, Cursor = Cursors.Hand };
             swatch.Click += (s, e) => CopyColor(swatch.BackColor, (Control)s!);
@@ -110,13 +116,21 @@ namespace ColorID
             {
                 int xPos = 12 + i * 120;
                 paletteSwatch[i] = new PictureBox { Location = new Point(xPos, 270), Size = new Size(100, 80), BorderStyle = BorderStyle.FixedSingle, Tag = "paletteUI", Cursor = Cursors.Hand };
-                paletteSwatch[i].Click += (s, e) => CopyColor(((PictureBox)s!).BackColor, (Control)s!);
+                paletteSwatch[i].Click += (s, e) =>
+                {
+                    var pb = (PictureBox)s!;
+                    CopyColor(pb.BackColor, pb);
+                    // Also update contrast swatch 2 color
+                    SetContrastColor(contrastSwatch2, contrastLabel2, pb.BackColor);
+                };
                 toolTip.SetToolTip(paletteSwatch[i], "Click to copy hex color");
                 Controls.Add(paletteSwatch[i]);
 
                 paletteInfoLabel[i] = new Label { Location = new Point(xPos, 355), Size = new Size(100, 60), AutoSize = false, Text = "#000000\nrgb(0,0,0)\nUnknown", Tag = "paletteUI", TextAlign = ContentAlignment.TopCenter, Font = new Font(Font.FontFamily, 8) };
                 Controls.Add(paletteInfoLabel[i]);
             }
+
+            AddContrastControls();
 
             // update palette based on default scheme/color and then reposition
             UpdatePaletteUI();
@@ -136,6 +150,84 @@ namespace ColorID
 
             // Keep the UI responsive when the user resizes the window
             Resize += (s, e) => LayoutControls();
+        }
+
+        private void AddContrastControls()
+        {
+            // Contrast Swatch 1
+            contrastSwatch1 = new Panel
+            {
+                Location = new Point(0, 0),
+                Size = new Size(50, 50),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.Black, // or swatch.BackColor if swatch is ready
+                Cursor = Cursors.Hand,
+                Tag = "paletteUI"
+            };
+            contrastSwatch1.Click += (s, e) => CopyColor(contrastSwatch1.BackColor, contrastSwatch1);
+            Controls.Add(contrastSwatch1);
+
+            // Contrast Label 1
+            contrastLabel1 = new Label
+            {
+                Location = new Point(0, 0),
+                AutoSize = true,
+                Text = $"#{contrastSwatch1.BackColor.R:X2}{contrastSwatch1.BackColor.G:X2}{contrastSwatch1.BackColor.B:X2}\nrgb({contrastSwatch1.BackColor.R},{contrastSwatch1.BackColor.G},{contrastSwatch1.BackColor.B})",
+                Tag = "paletteUI"
+            };
+            Controls.Add(contrastLabel1);
+
+            // Contrast Swatch 2
+            contrastSwatch2 = new Panel
+            {
+                Location = new Point(0, 0),
+                Size = new Size(50, 50),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.White,
+                Cursor = Cursors.Hand,
+                Tag = "paletteUI"
+            };
+            contrastSwatch2.Click += (s, e) => CopyColor(contrastSwatch2.BackColor, contrastSwatch2);
+            Controls.Add(contrastSwatch2);
+
+            // Contrast Label 2
+            contrastLabel2 = new Label
+            {
+                Location = new Point(0, 0),
+                AutoSize = true,
+                Text = $"#{contrastSwatch2.BackColor.R:X2}{contrastSwatch2.BackColor.G:X2}{contrastSwatch2.BackColor.B:X2}\nrgb({contrastSwatch2.BackColor.R},{contrastSwatch2.BackColor.G},{contrastSwatch2.BackColor.B})",
+                Tag = "paletteUI"
+            };
+            Controls.Add(contrastLabel2);
+
+            // Contrast Ratio Label
+            contrastRatioLabel = new Label
+            {
+                Location = new Point(0, 0),
+                AutoSize = true,
+                Font = new Font(Font.FontFamily, 10, FontStyle.Bold),
+                Text = "Contrast Ratio: N/A",
+                Tag = "paletteUI"
+            };
+            Controls.Add(contrastRatioLabel);
+
+            // Swap Button
+            swapContrastBtn = new Button
+            {
+                Location = new Point(0, 0),
+                Size = new Size(60, 50),
+                Text = "Swap",
+                Tag = "paletteUI"
+            };
+            swapContrastBtn.Click += (s, e) =>
+            {
+                var temp = contrastSwatch1.BackColor;
+                SetContrastColor(contrastSwatch1, contrastLabel1, contrastSwatch2.BackColor);
+                SetContrastColor(contrastSwatch2, contrastLabel2, temp);
+                UpdatePaletteUI();
+
+            };
+            Controls.Add(swapContrastBtn);
         }
 
         private void MainForm_KeyDown(object? sender, KeyEventArgs e)
@@ -258,6 +350,11 @@ namespace ColorID
             hexLabel.Text = hex;
             rgbLabel.Text = $"rgb({c.R}, {c.G}, {c.B}) @ {x},{y}";
             nameLabel.Text = GetNearestColorName(c);
+
+            // Update first contrast swatch to current picked color
+            SetContrastColor(contrastSwatch1, contrastLabel1, c);
+
+            // Update palette colors
             UpdatePaletteUI();
         }
 
@@ -279,28 +376,20 @@ namespace ColorID
             {
                 if ((string?)c.Tag == "paletteUI")
                 {
-                    if (paletteVisible)
-                    {
-                        bool isScheme = (c == schemeCombo) || (c is Label l && l.Text == "Scheme:");
-                        c.Visible = isScheme || c.Visible;
-                    }
-                    else
-                    {
-                        c.Visible = false;
-                    }
+                    c.Visible = paletteVisible;
                 }
             }
         
             paletteToggleBtn.Text = paletteVisible ? "Hide Palette" : "Show Palette";
             int width = Math.Max(ClientSize.Width, MinimumSize.Width);
-            int height = paletteVisible ? 430 : 220;
+            int height = paletteVisible ? 520 : 220; // increase height to fit palette and contrast controls
             ClientSize = new Size(width, height);
             LayoutControls();
         }
 
         /// <summary>
         /// Adjusts the location of scheme controls and palette swatches so that
-        /// they are centered within the current client area.  This should be
+        /// they are centered within the current client area. This should be
         /// called whenever the form is resized, palette visibility changes, or
         /// the number of active palette entries is updated.
         /// </summary>
@@ -345,6 +434,29 @@ namespace ColorID
                 }
             }
             RepositionButtons();
+            
+                // Position contrast controls centered below palette swatches
+                if (paletteVisible)
+                {
+                    // Calculate horizontal center for contrast controls
+                    int totalContrastWidth = contrastSwatch1.Width + 8 + contrastLabel1.Width + 8 + swapContrastBtn.Width + 8 + contrastSwatch2.Width + 8 + contrastLabel2.Width;
+                    int startX = (ClientSize.Width - totalContrastWidth) / 2;
+                    int contrastY = 430; // position below palette swatches (palette swatches are at y=270-355)
+
+                    // Position contrastSwatch1 and label1
+                    contrastSwatch1.Location = new Point(startX, contrastY);
+                    contrastLabel1.Location = new Point(contrastSwatch1.Right + 8, contrastY + 10);
+
+                    // Position swap button
+                    swapContrastBtn.Location = new Point(contrastLabel1.Right + 8, contrastY);
+
+                    // Position contrastSwatch2 and label2
+                    contrastSwatch2.Location = new Point(swapContrastBtn.Right + 8, contrastY);
+                    contrastLabel2.Location = new Point(contrastSwatch2.Right + 8, contrastY + 10);
+
+                    // Position contrast ratio label below the swatches and button
+                    contrastRatioLabel.Location = new Point(startX, contrastY + contrastSwatch1.Height + 10);
+                }
         }
 
         /// <summary>
@@ -386,6 +498,15 @@ namespace ColorID
             hexLabel.Location = new Point(labelX, margin + 4);
             rgbLabel.Location = new Point(labelX, hexLabel.Bottom + 6);
             nameLabel.Location = new Point(labelX, rgbLabel.Bottom + 6);
+
+/*             // Position contrast controls near bottom, but inside client area
+            int contrastY = ClientSize.Height - 100; // 100 px from bottom
+            contrastSwatch1.Location = new Point(12, contrastY);
+            contrastLabel1.Location = new Point(contrastSwatch1.Right + 8, contrastY + 10);
+            swapContrastBtn.Location = new Point(contrastLabel1.Right + 8, contrastY);
+            contrastSwatch2.Location = new Point(swapContrastBtn.Right + 8, contrastY);
+            contrastLabel2.Location = new Point(contrastSwatch2.Right + 8, contrastY + 10);
+            contrastRatioLabel.Location = new Point(12, contrastY + 60); */
 
             // Re-center the buttons and palette controls for the current size
             RepositionButtons();
@@ -490,9 +611,90 @@ namespace ColorID
                     colors.Add(HsvToRgb(new HSV { H = (hsv.H + 180) % 360, S = hsv.S, V = hsv.V }));
                     colors.Add(HsvToRgb(new HSV { H = (hsv.H + 270) % 360, S = hsv.S, V = hsv.V }));
                     break;
+                case ColorScheme.Compliant508:
+                    colors = new List<Color>(Get508CompliantColors(baseColor));
+                    break;
             }
 
             return colors.ToArray();
+        }
+
+        private static double GetRelativeLuminance(Color c)
+        {
+            double RsRGB = c.R / 255.0;
+            double GsRGB = c.G / 255.0;
+            double BsRGB = c.B / 255.0;
+
+            double R = RsRGB <= 0.03928 ? RsRGB / 12.92 : Math.Pow((RsRGB + 0.055) / 1.055, 2.4);
+            double G = GsRGB <= 0.03928 ? GsRGB / 12.92 : Math.Pow((GsRGB + 0.055) / 1.055, 2.4);
+            double B = BsRGB <= 0.03928 ? BsRGB / 12.92 : Math.Pow((BsRGB + 0.055) / 1.055, 2.4);
+
+            return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+        }
+
+        private static double GetContrastRatio(Color c1, Color c2)
+        {
+            double L1 = GetRelativeLuminance(c1);
+            double L2 = GetRelativeLuminance(c2);
+
+            double lighter = Math.Max(L1, L2);
+            double darker = Math.Min(L1, L2);
+
+            return (lighter + 0.05) / (darker + 0.05);
+        }
+
+        private Color[] Get508CompliantColors(Color baseColor)
+        {
+            const double minContrast = 4.5;
+            var colors = new List<Color> { baseColor };
+            HSV baseHsv = RgbToHsv(baseColor);
+
+            // Try darker variants by decreasing brightness
+            for (double v = baseHsv.V - 0.2; v >= 0 && colors.Count < 4; v -= 0.1)
+            {
+                var c = HsvToRgb(new HSV { H = baseHsv.H, S = baseHsv.S, V = v });
+                if (GetContrastRatio(baseColor, c) >= minContrast)
+                    colors.Add(c);
+            }
+
+            // Try lighter variants by increasing brightness
+            for (double v = baseHsv.V + 0.2; v <= 1 && colors.Count < 4; v += 0.1)
+            {
+                var c = HsvToRgb(new HSV { H = baseHsv.H, S = baseHsv.S, V = v });
+                if (GetContrastRatio(baseColor, c) >= minContrast)
+                    colors.Add(c);
+            }
+
+            // If still less than 4 colors, add black or white fallback colors
+            if (colors.Count < 4)
+            {
+                if (GetContrastRatio(baseColor, Color.Black) >= minContrast && !colors.Contains(Color.Black))
+                    colors.Add(Color.Black);
+                if (colors.Count < 4 && GetContrastRatio(baseColor, Color.White) >= minContrast && !colors.Contains(Color.White))
+                    colors.Add(Color.White);
+            }
+
+            // Ensure exactly 4 colors
+            while (colors.Count < 4)
+                colors.Add(baseColor);
+
+            return colors.Take(4).ToArray();
+        }
+
+        private void UpdateContrastRatio()
+        {
+            Color c1 = contrastSwatch1.BackColor;
+            Color c2 = contrastSwatch2.BackColor;
+            double ratio = GetContrastRatio(c1, c2);
+            string passFail = ratio >= 4.5 ? "Passes 508 compliance" : "Fails 508 compliance";
+            contrastRatioLabel.Text = $"Contrast Ratio: {ratio:F2} — {passFail}";
+        }
+
+        private void SetContrastColor(Panel swatch, Label label, Color color)
+        {
+            swatch.BackColor = color;
+            label.Text = $"#{color.R:X2}{color.G:X2}{color.B:X2}\nrgb({color.R},{color.G},{color.B})";
+            UpdateContrastRatio();
         }
 
         private void UpdatePaletteUI()
@@ -519,6 +721,9 @@ namespace ColorID
                 }
             }
             RepositionPaletteControls();
+
+            // Update contrast ratio display
+            UpdateContrastRatio();
         }
     }
 }

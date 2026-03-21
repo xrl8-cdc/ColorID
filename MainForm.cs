@@ -52,6 +52,7 @@ namespace ColorID
         private Label contrastLabel2 = null!;
         private Label contrastRatioLabel = null!;
         private Button swapContrastBtn = null!;
+        private Dictionary<PictureBox, Color> paletteSwatchColors = new Dictionary<PictureBox, Color>();
 
         public MainForm()
         {
@@ -119,9 +120,10 @@ namespace ColorID
                 paletteSwatch[i].Click += (s, e) =>
                 {
                     var pb = (PictureBox)s!;
-                    CopyColor(pb.BackColor, pb);
-                    // Also update contrast swatch 2 color
-                    SetContrastColor(contrastSwatch2, contrastLabel2, pb.BackColor);
+                    if (!paletteSwatchColors.TryGetValue(pb, out var originalColor))
+                        originalColor = pb.BackColor;
+                    CopyColor(originalColor, pb);
+                    SetContrastColor(contrastSwatch2, contrastLabel2, originalColor);
                 };
                 toolTip.SetToolTip(paletteSwatch[i], "Click to copy hex color");
                 Controls.Add(paletteSwatch[i]);
@@ -708,6 +710,7 @@ namespace ColorID
                 {
                     Color c = palette[i];
                     paletteSwatch[i].BackColor = c;
+                    paletteSwatchColors[paletteSwatch[i]] = c;
                     string hex = $"#{c.R:X2}{c.G:X2}{c.B:X2}";
                     string rgb = $"rgb({c.R},{c.G},{c.B})";
                     string name = GetNearestColorName(c);
